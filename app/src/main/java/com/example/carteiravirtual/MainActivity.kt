@@ -2,6 +2,8 @@ package com.example.carteiravirtual
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.ArrayAdapter
+import android.widget.ListView
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -28,14 +30,41 @@ class MainActivity : AppCompatActivity() {
             insets
         }
         carteiraDao = CarteiraDao(this)
-        carteira = carteiraDao.listarValores()
         saldo = findViewById(R.id.textSaldo)
-        saldo.text = "Seu saldo em Reais é de: R$ " + carteira.getValue("real").toString()
+
+        carteira = carteiraDao.listarValores()
+        setSaldo(carteira.real)
 
         binding.buttonDepositar.setOnClickListener{
             val intent = Intent(this, DepositarActivity::class.java)
             startActivity(intent)
         }
+
+        binding.buttonListar.setOnClickListener{
+            val intent = Intent(this, ListagemActivity::class.java)
+            startActivity(intent)
+        }
+
+        binding.buttonConverter.setOnClickListener{
+            val intent = Intent(this, ConverterActivity::class.java)
+            startActivity(intent)
+        }
+
+    }
+
+    private fun listValores() {
+        val valores = carteiraDao.listarValores()
+        carteira = valores
+    }
+
+    fun setSaldo(novoSaldo: Float){
+        saldo.text = "Seu saldo em Reais é de: R$ ${String.format("%.2f", novoSaldo)}"
+    }
+
+    override fun onResume() {
+        super.onResume()
+        listValores()
+        setSaldo(carteira.real)
 
     }
 }

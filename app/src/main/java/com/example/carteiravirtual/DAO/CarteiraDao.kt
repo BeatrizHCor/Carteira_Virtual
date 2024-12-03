@@ -9,16 +9,19 @@ import com.example.carteiravirtual.Model.Carteira
 class CarteiraDao(private val context: Context) {
     private val dbHelper = DBHelper(context)
 
-    fun depositar(valor: Float){
-        val db = dbHelper.writableDatabase
+    fun depositar(valor: Float) {
         val real = this.listarValores().real
+
+        val db = dbHelper.writableDatabase
+
         val values = ContentValues().apply {
             put("real", real + valor)
         }
-        val whereArgs = arrayOf("")
-        db.update(DBHelper.TABLE_NAME, values, "", whereArgs)
+
+        db.update(DBHelper.TABLE_NAME, values, null, null)
         db.close()
     }
+
     fun converter(deMoeda: String, paraMoeda: String, valor: Float){
         val db = dbHelper.writableDatabase
         val val1: Float = this.listarValores().getValue(deMoeda)
