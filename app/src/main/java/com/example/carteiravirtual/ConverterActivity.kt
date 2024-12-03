@@ -5,7 +5,6 @@ import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.EditText
-import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -31,7 +30,6 @@ class ConverterActivity : AppCompatActivity() {
     private lateinit var spinnerDestino: Spinner
     private lateinit var moedaApi: MoedaApi
     private lateinit var inputConverter: EditText
-    private lateinit var progressBar: ProgressBar
 
     val options = listOf(
         Pair("Real", "BRL"),
@@ -55,7 +53,6 @@ class ConverterActivity : AppCompatActivity() {
         spinnerDestino = findViewById(R.id.spinnerDestino)
         carteiraDao = CarteiraDao(this)
         inputConverter = findViewById(R.id.editTextValor)
-        progressBar = findViewById(R.id.progressBar)
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://economia.awesomeapi.com.br/")
@@ -88,8 +85,7 @@ class ConverterActivity : AppCompatActivity() {
 
             lifecycleScope.launch {
                 try {
-                    progressBar.visibility = View.VISIBLE
-                    val response: Response<Map<String, Moeda>>
+                    val response: Response<*>?
 
                     if (origemCodigo in listOf("BTC", "ETH") && destinoCodigo in listOf("BTC", "ETH")) {
                         val responseOrigem = moedaApi.getCotacao(origemCodigo.toString(), "USD")
@@ -105,10 +101,17 @@ class ConverterActivity : AppCompatActivity() {
 
                                 validarMoeda(origemCodigo.toString(), valorConverter)
                                 carteiraDao.converter(origem, destino, valorFinal, valorConverter)
+
+                                val mensagem = formatarMensagemConversao(
+                                    valorConverter,
+                                    origemCodigo.toString(),
+                                    valorFinal,
+                                    destinoCodigo.toString()
+                                )
                                 Toast.makeText(
                                     this@ConverterActivity,
-                                    "Saldo em ${destinoCodigo} é ${valorFinal}",
-                                    Toast.LENGTH_SHORT
+                                    mensagem,
+                                    Toast.LENGTH_LONG
                                 ).show()
                             }
                         }
@@ -123,17 +126,24 @@ class ConverterActivity : AppCompatActivity() {
                             response = moedaApi.getCotacao(origemCodigo.toString(), destinoCodigo.toString())
                         }
 
-                        if (response.isSuccessful) {
+                        if (response!!.isSuccessful) {
                             val corpo = response.body()
                             val moeda = corpo?.values?.firstOrNull()?.bid?.toFloatOrNull()
                             if (moeda != null) {
                                 validarMoeda(origemCodigo.toString(), valorConverter)
                                 val convertido = realizaConversao(valorConverter, moeda, criptoMoedasDestino)
                                 carteiraDao.converter(origem, destino, convertido, valorConverter)
+
+                                val mensagem = formatarMensagemConversao(
+                                    valorConverter,
+                                    origemCodigo.toString(),
+                                    convertido,
+                                    destinoCodigo.toString()
+                                )
                                 Toast.makeText(
                                     this@ConverterActivity,
-                                    "Saldo em ${destinoCodigo} é ${convertido}",
-                                    Toast.LENGTH_SHORT
+                                    mensagem,
+                                    Toast.LENGTH_LONG
                                 ).show()
                             }
                         }
@@ -145,14 +155,58 @@ class ConverterActivity : AppCompatActivity() {
                         "Erro na conversão: ${ex.message}",
                         Toast.LENGTH_SHORT
                     ).show()
-                } finally {
-                    progressBar.visibility = View.GONE
                 }
             }
         } catch (e: Exception) {
-            progressBar.visibility = View.GONE
             Log.e("MainActivity", "Erro ao buscar a moeda", e)
         }
+    }
+
+    private fun formatarMensagemConversao(
+        valorOrigem: Float,
+        moedaOrigem: String,
+        valorDestino: Float,
+        moedaDestino: String
+    ): String {
+        val formatoOrigem = when (moedaOrigem) {
+            "BTC" -> "%.8f"
+            "ETH" -> "%.8f"
+            else -> "%.2f"
+        }
+
+        val formatoDestino = when (moedaDestino) {
+            "BTC" -> "%.8f"
+            "ETH" -> "%.8f"
+            else -> "%.2f"
+        }
+
+        val simboloOrigem = when (moedaOrigem) {
+            "BTC" -> "₿"
+            "ETH" -> "Ξ"
+            "USD" -> "$"
+            "EUR" -> "€"
+            "BRL" -> "R$"
+            else -> ""
+        }
+
+        val simboloDestino = when (moedaDestino) {
+            "BTC" -> "₿"
+            "ETH" -> "Ξ"
+            "USD" -> "$"
+            "EUR" -> "€"
+            "BRL" -> "R$"
+            else -> ""
+        }
+
+        return String.format(
+            "%s%s %s -> %s%s %s",
+            simboloOrigem,
+            String.format(formatoOrigem, valorOrigem),
+            moedaOrigem,
+            simboloDestino,
+            String.format(formatoDestino, valorDestino),
+            moedaDestino
+        )
     }
 
     private fun realizaConversao(
