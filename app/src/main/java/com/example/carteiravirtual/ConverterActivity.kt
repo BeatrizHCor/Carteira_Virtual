@@ -1,15 +1,26 @@
 package com.example.carteiravirtual
 
 import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
+import com.example.carteiravirtual.API.MoedaApi
 import com.example.carteiravirtual.DAO.CarteiraDao
 import com.example.carteiravirtual.Model.Carteira
+import com.example.carteiravirtual.Model.Moeda
+import kotlinx.coroutines.launch
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class ConverterActivity : AppCompatActivity() {
 
@@ -17,8 +28,17 @@ class ConverterActivity : AppCompatActivity() {
     private lateinit var carteiraDao: CarteiraDao
     private lateinit var spinnerOrigem: Spinner
     private lateinit var spinnerDestino: Spinner
+    private lateinit var moedaApi: MoedaApi
+    private lateinit var inputConverter: EditText
 
-    val options = arrayOf("Opção 1", "Opção 2", "Opção 3", "Opção 4")
+
+    val options = listOf(
+        Pair("Real", "BRL"),
+        Pair("Dolar", "USD"),
+        Pair("Euro", "EUR"),
+        Pair("BTC", "BTC"),
+        Pair("ETH", "ETH")
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,22 +52,112 @@ class ConverterActivity : AppCompatActivity() {
 
         spinnerOrigem = findViewById(R.id.spinnerOrigem)
         spinnerDestino = findViewById(R.id.spinnerDestino)
+        carteiraDao = CarteiraDao(this)
+        inputConverter = findViewById(R.id.editTextValor)
 
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://economia.awesomeapi.com.br/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
 
+        moedaApi = retrofit.create(MoedaApi::class.java)
         setSpinner()
+    }
 
+    fun setSpinner() {
+
+        val names = options.map { it.first }
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, names)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerOrigem.adapter = adapter
+        spinnerDestino.adapter = adapter
+
+    }
+
+    fun converteMoeda(view: View) {
+        try {
+            val origem = spinnerOrigem.selectedItem.toString()
+            val origemCodigo = options.find { it.first == origem }?.second
+            val destino = spinnerDestino.selectedItem.toString()
+            val destinoCodigo = options.find { it.first == destino }?.second
+            var valorConverter = inputConverter.text.toString().toFloat()
+            var criptoMoedasDestino = false;
+            lifecycleScope.launch {
+                try {
+                    val response: Response<Map<String, Moeda>>
+                    if (destinoCodigo.toString().equals("BTC")) {
+                        criptoMoedasDestino = true
+                        response =
+                            moedaApi.getCotacao(destinoCodigo.toString(), origemCodigo.toString())
+                    } else if (destinoCodigo.toString().equals("ETH")) {
+                        criptoMoedasDestino = true
+                        response =
+                            moedaApi.getCotacao(destinoCodigo.toString(), origemCodigo.toString())
+                    } else {
+                        response =
+                            moedaApi.getCotacao(origemCodigo.toString(), destinoCodigo.toString())
+
+                    }
+
+
+                    if (response.isSuccessful) {
+                        val corpo = response.body()
+                        val moeda = corpo?.values?.firstOrNull()?.bid?.toFloatOrNull()
+                        if (moeda != null) {
+                            validarMoeda(origemCodigo.toString(), valorConverter)
+                            val convertido =
+                                realizaConversao(valorConverter, moeda, criptoMoedasDestino)
+                            carteiraDao.converter(origem, destino, convertido, valorConverter)
+                            Toast.makeText(
+                                this@ConverterActivity,
+                                "Saldo em ${destinoCodigo} é ${convertido} ",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+
+                    }
+
+                } catch (ex: Exception) {
+                    Log.e(ex.message, ex.message, ex)
+                }
+
+
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Erro ao buscar a moeda", e)
+
+        }
 
 
     }
 
-    fun setSpinner(){
+    private fun realizaConversao(
+        valorOrigem: Float,
+        taxaCambio: Float,
+        criptoMoedasDestino: Boolean
+    ): Float {
+        if (criptoMoedasDestino)
+            return valorOrigem / taxaCambio
+        return valorOrigem * taxaCambio
+    }
 
-            val adapter = ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, options)
+    private fun validarMoeda(origem: String, valorConverter: Float) {
+        val carteira = carteiraDao.listarValores()
+        val meuSaldo: Float
 
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-
-            spinnerOrigem.adapter = adapter
-            spinnerDestino.adapter = adapter
-
+        when (origem) {
+            "EUR" -> meuSaldo = carteira.euro
+            "BRL" -> meuSaldo = carteira.real
+            "USD" -> meuSaldo = carteira.dolar
+            "BTC" -> meuSaldo = carteira.btc
+            "ETH" -> meuSaldo = carteira.eth
+            else -> {
+                meuSaldo = 0f
+            }
+        }
+        if (meuSaldo < valorConverter) {
+            Toast.makeText(this, "Saldo insuficiente para comprar moeda", Toast.LENGTH_SHORT).show()
+            throw Exception("Falta de saldo para comprar")
+        }
     }
 }

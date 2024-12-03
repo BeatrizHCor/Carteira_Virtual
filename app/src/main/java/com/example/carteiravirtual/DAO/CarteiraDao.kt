@@ -22,16 +22,27 @@ class CarteiraDao(private val context: Context) {
         db.close()
     }
 
-    fun converter(deMoeda: String, paraMoeda: String, valor: Float){
+    fun converter(deMoeda: String, paraMoeda: String, valor: Float, valorConverter: Float){
+
+        var listaModas = this.listarValores()
         val db = dbHelper.writableDatabase
-        val val1: Float = this.listarValores().getValue(deMoeda)
-        val val2: Float = this.listarValores().getValue(paraMoeda)
+        val valorOrigem: Float
+        val valorDestino: Float
+
+        valorOrigem = listaModas.getValue(deMoeda.toLowerCase())
+        valorDestino  = listaModas.getValue(paraMoeda.toLowerCase())
+
+        val values = ContentValues().apply {
+            put(paraMoeda, valorDestino + valor)
+            put(deMoeda, valorOrigem-valorConverter)
+        }
+        db.update(DBHelper.TABLE_NAME, values, null, null)
+        db.close()
 
     }
     fun listarValores(): Carteira{
         val db = dbHelper.readableDatabase
         val cursor: Cursor = db.query(DBHelper.TABLE_NAME, null, null, null, null, null, null)
-        println("Aqui")
         var real = 0f
         var dolar = 0f
         var euro = 0f

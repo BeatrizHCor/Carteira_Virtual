@@ -2,19 +2,19 @@ package com.example.carteiravirtual.Model
 
 data class Carteira(val real: Float, val dolar: Float, val euro: Float, val btc: Float, val eth: Float){
     fun getValue(string: String): Float{
-        if(string == "real"){
+        if(string.lowercase() == "real"){
             return this.real
         }
-        if(string == "dolar"){
+        if(string.lowercase() == "dolar"){
             return this.dolar
         }
-        if(string == "euro"){
+        if(string.lowercase() == "euro"){
             return this.euro
         }
-        if(string == "btc"){
+        if(string.lowercase() == "btc"){
             return this.btc
         }
-        if(string == "eth"){
+        if(string.lowercase() == "eth"){
             return this.eth
         }
         return 0f
