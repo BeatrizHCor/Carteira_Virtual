@@ -5,6 +5,7 @@ import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -30,7 +31,7 @@ class ConverterActivity : AppCompatActivity() {
     private lateinit var spinnerDestino: Spinner
     private lateinit var moedaApi: MoedaApi
     private lateinit var inputConverter: EditText
-
+    private lateinit var progressBar: ProgressBar
 
     val options = listOf(
         Pair("Real", "BRL"),
@@ -54,6 +55,7 @@ class ConverterActivity : AppCompatActivity() {
         spinnerDestino = findViewById(R.id.spinnerDestino)
         carteiraDao = CarteiraDao(this)
         inputConverter = findViewById(R.id.editTextValor)
+        progressBar = findViewById(R.id.progressBar)
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://economia.awesomeapi.com.br/")
@@ -81,54 +83,76 @@ class ConverterActivity : AppCompatActivity() {
             val destino = spinnerDestino.selectedItem.toString()
             val destinoCodigo = options.find { it.first == destino }?.second
             var valorConverter = inputConverter.text.toString().toFloat()
-            var criptoMoedasDestino = false;
+            var criptoMoedasDestino = false
+            var criptoMoedasOrigem = false
+
             lifecycleScope.launch {
                 try {
+                    progressBar.visibility = View.VISIBLE
                     val response: Response<Map<String, Moeda>>
-                    if (destinoCodigo.toString().equals("BTC")) {
-                        criptoMoedasDestino = true
-                        response =
-                            moedaApi.getCotacao(destinoCodigo.toString(), origemCodigo.toString())
-                    } else if (destinoCodigo.toString().equals("ETH")) {
-                        criptoMoedasDestino = true
-                        response =
-                            moedaApi.getCotacao(destinoCodigo.toString(), origemCodigo.toString())
+
+                    if (origemCodigo in listOf("BTC", "ETH") && destinoCodigo in listOf("BTC", "ETH")) {
+                        val responseOrigem = moedaApi.getCotacao(origemCodigo.toString(), "USD")
+                        val responseDestino = moedaApi.getCotacao(destinoCodigo.toString(), "USD")
+
+                        if (responseOrigem.isSuccessful && responseDestino.isSuccessful) {
+                            val valorOrigemUSD = responseOrigem.body()?.values?.firstOrNull()?.bid?.toFloatOrNull() ?: 0f
+                            val valorDestinoUSD = responseDestino.body()?.values?.firstOrNull()?.bid?.toFloatOrNull() ?: 0f
+
+                            if (valorOrigemUSD > 0 && valorDestinoUSD > 0) {
+                                val valorEmUSD = valorConverter * valorOrigemUSD
+                                val valorFinal = valorEmUSD / valorDestinoUSD
+
+                                validarMoeda(origemCodigo.toString(), valorConverter)
+                                carteiraDao.converter(origem, destino, valorFinal, valorConverter)
+                                Toast.makeText(
+                                    this@ConverterActivity,
+                                    "Saldo em ${destinoCodigo} é ${valorFinal}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
                     } else {
-                        response =
-                            moedaApi.getCotacao(origemCodigo.toString(), destinoCodigo.toString())
-
-                    }
-
-
-                    if (response.isSuccessful) {
-                        val corpo = response.body()
-                        val moeda = corpo?.values?.firstOrNull()?.bid?.toFloatOrNull()
-                        if (moeda != null) {
-                            validarMoeda(origemCodigo.toString(), valorConverter)
-                            val convertido =
-                                realizaConversao(valorConverter, moeda, criptoMoedasDestino)
-                            carteiraDao.converter(origem, destino, convertido, valorConverter)
-                            Toast.makeText(
-                                this@ConverterActivity,
-                                "Saldo em ${destinoCodigo} é ${convertido} ",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                        if (destinoCodigo in listOf("BTC", "ETH")) {
+                            criptoMoedasDestino = true
+                            response = moedaApi.getCotacao(destinoCodigo.toString(), origemCodigo.toString())
+                        } else if (origemCodigo in listOf("BTC", "ETH")) {
+                            criptoMoedasOrigem = true
+                            response = moedaApi.getCotacao(origemCodigo.toString(), destinoCodigo.toString())
+                        } else {
+                            response = moedaApi.getCotacao(origemCodigo.toString(), destinoCodigo.toString())
                         }
 
+                        if (response.isSuccessful) {
+                            val corpo = response.body()
+                            val moeda = corpo?.values?.firstOrNull()?.bid?.toFloatOrNull()
+                            if (moeda != null) {
+                                validarMoeda(origemCodigo.toString(), valorConverter)
+                                val convertido = realizaConversao(valorConverter, moeda, criptoMoedasDestino)
+                                carteiraDao.converter(origem, destino, convertido, valorConverter)
+                                Toast.makeText(
+                                    this@ConverterActivity,
+                                    "Saldo em ${destinoCodigo} é ${convertido}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
                     }
-
                 } catch (ex: Exception) {
                     Log.e(ex.message, ex.message, ex)
+                    Toast.makeText(
+                        this@ConverterActivity,
+                        "Erro na conversão: ${ex.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } finally {
+                    progressBar.visibility = View.GONE
                 }
-
-
             }
         } catch (e: Exception) {
+            progressBar.visibility = View.GONE
             Log.e("MainActivity", "Erro ao buscar a moeda", e)
-
         }
-
-
     }
 
     private fun realizaConversao(
