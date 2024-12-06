@@ -1,12 +1,12 @@
 package com.example.carteiravirtual
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.Spinner
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -16,7 +16,6 @@ import androidx.lifecycle.lifecycleScope
 import com.example.carteiravirtual.API.MoedaApi
 import com.example.carteiravirtual.DAO.CarteiraDao
 import com.example.carteiravirtual.Model.Carteira
-import com.example.carteiravirtual.Model.Moeda
 import kotlinx.coroutines.launch
 import retrofit2.Response
 import retrofit2.Retrofit
@@ -43,6 +42,7 @@ class ConverterActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_converter)
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -61,16 +61,22 @@ class ConverterActivity : AppCompatActivity() {
 
         moedaApi = retrofit.create(MoedaApi::class.java)
         setSpinner()
+
+        // Configuração do botão Voltar
+        val btnVoltar = findViewById<View>(R.id.btnVoltar)
+        btnVoltar.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            startActivity(intent)
+            finish()
+        }
     }
 
     fun setSpinner() {
-
         val names = options.map { it.first }
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, names)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerOrigem.adapter = adapter
         spinnerDestino.adapter = adapter
-
     }
 
     fun converteMoeda(view: View) {

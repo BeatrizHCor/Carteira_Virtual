@@ -1,7 +1,9 @@
 package com.example.carteiravirtual
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.ArrayAdapter
+import android.widget.Button
 import android.widget.ListView
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -13,11 +15,8 @@ import com.example.carteiravirtual.Model.Carteira
 
 class ListagemActivity : AppCompatActivity() {
 
-    private lateinit var carteira: Carteira
     private lateinit var carteiraDao: CarteiraDao
     private lateinit var listView: ListView
-    private lateinit var emptyTextView: TextView
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,6 +26,13 @@ class ListagemActivity : AppCompatActivity() {
         listView = findViewById(R.id.lvSaldos)
         carteiraDao = CarteiraDao(this)
 
+        val btnVoltar = findViewById<Button>(R.id.btnVoltar)
+        btnVoltar.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            startActivity(intent)
+            finish()
+        }
+
         listaSaldos()
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
@@ -35,8 +41,9 @@ class ListagemActivity : AppCompatActivity() {
             insets
         }
     }
+
     private fun listaSaldos() {
-        var saldos = carteiraDao.listarValores()
+        val saldos = carteiraDao.listarValores()
 
         val listaExibicao = listOf(
             "Real: R$ ${String.format("%.2f", saldos.getValue("real"))}",
@@ -45,8 +52,6 @@ class ListagemActivity : AppCompatActivity() {
             "BTC: ${String.format("%.5f", saldos.getValue("btc"))}",
             "ETH: Ξ ${String.format("%.5f", saldos.getValue("eth"))}"
         )
-
-        listView.visibility = ListView.VISIBLE
 
         val adapter = ArrayAdapter(
             this, android.R.layout.simple_list_item_1, listaExibicao

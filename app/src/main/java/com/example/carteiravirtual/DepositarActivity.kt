@@ -1,5 +1,6 @@
 package com.example.carteiravirtual
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
@@ -23,11 +24,17 @@ class DepositarActivity : AppCompatActivity() {
         carteiraDao = CarteiraDao(this)
         inputDepositar = findViewById(R.id.inputDepositar)
 
-
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
+        }
+
+        val btnVoltar = findViewById<View>(R.id.btnVoltar)
+        btnVoltar.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            startActivity(intent)
+            finish()
         }
     }
 
@@ -42,14 +49,11 @@ class DepositarActivity : AppCompatActivity() {
             if (newDeposito > 0) {
                 carteiraDao.depositar(newDeposito)
                 finish()
-
             } else {
                 Toast.makeText(this, "Insira um valor positivo para depositar", Toast.LENGTH_SHORT).show()
             }
-        }
-        catch( e: Exception){
+        } catch (e: Exception) {
             Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
         }
-
     }
 }
